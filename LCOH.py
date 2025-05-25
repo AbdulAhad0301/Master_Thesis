@@ -12,9 +12,7 @@ from config import (
     LOAD_CSV, STR_CAP
 )
 
-
-
-# --- Financial Helpers ---
+# Helper functions
 def convert_USD2007_to_EUR2024(usd2007: float) -> float:
     return usd2007 * (CEPCI_2024 / CEPCI_2007) / EXCHANGE_RATE
 
@@ -24,7 +22,6 @@ def convert_USD2019_to_EUR2024(usd2019: float) -> float:
 def capital_recovery_factor(r: float, n: int) -> float:
     return r * (1 + r)**n / ((1 + r)**n - 1)
 
-# --- Geological Storage CapEx ---
 def storage_capex_eur(Vcav_m3: float) -> float:
     # HDSAM V5 eqns
     C_cav = ((2193.5*Vcav_m3/9e6) + 7e6)*Vcav_m3/9e6
@@ -35,8 +32,6 @@ def storage_capex_eur(Vcav_m3: float) -> float:
     return convert_USD2019_to_EUR2024(usd19)
 
 
-
-# --- Economic Calculation ---
 def calculate_pipeline_economics(
     n_init, n_enroute, stations, m_dot_design,
     Ei_fix, Ee_fix, Es_fix,

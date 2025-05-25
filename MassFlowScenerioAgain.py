@@ -8,7 +8,6 @@ from config import (
 from LCOH import calculate_pipeline_economics
 from FlowCalc import simulate_energy
 
-# --- Main scenarios ---
 def main():
     scenarios = [
         {"label": "40% of capacity", "flow_kg_day": int(0.4 * TEST_MASS_FLOW_KG_PER_DAY), "init": 5,  "enroute": 5},

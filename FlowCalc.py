@@ -11,15 +11,15 @@ from config import (
     ETA,
     NUMBER_OF_STAGES, MOTOR_Eff,
     DESIGN_MASS_FLOW_4kg,
-    LOAD_CSV, STORAGE_LOC, TOTAL_LEN_KM
+    LOAD_CSV
 )
 from pd import solve_P2_for_flow
-from Effmap import calculate_z_and_rho, compressor_model, compressor_work
+from Effmap import cal_Z_Rho, compModel, comp_power
 
 
 
 
-# --- Simulation of Energy & Mass ---
+# Simulation of Energy
 def simulate_energy(m_dot_design, units_init, n_enroute_stations, section_length_km, booster_to_storage_km):
     df = pd.read_csv(LOAD_CSV)
     fracs = df["NormalizedLoad"].to_numpy()
@@ -32,8 +32,8 @@ def simulate_energy(m_dot_design, units_init, n_enroute_stations, section_length
         sum_mass += m_dot * 3600
         # pressure drop for section
         P2, _ = solve_P2_for_flow(PDISC_BAR, m_dot * 86400, total_length_m=section_length_km*1e3)
-        Z_en, _ = calculate_z_and_rho(P2*1e5, TFLOW_K)
-        Z_in, _ = calculate_z_and_rho(PSUC_BAR*1e5, TFLOW_K)
+        Z_en, _ = cal_Z_Rho(P2*1e5, TFLOW_K)
+        Z_in, _ = cal_Z_Rho(PSUC_BAR*1e5, TFLOW_K)
 
 
         # initial station energy
@@ -42,32 +42,32 @@ def simulate_energy(m_dot_design, units_init, n_enroute_stations, section_length
         excess = max(flow_init - m_dot, 0)
         if excess > 0:
             Pst, _ = solve_P2_for_flow(PDISC_BAR, flow_init*86400, total_length_m=booster_to_storage_km*1e3)
-            Z, _ = calculate_z_and_rho(Pst*1e5, TFLOW_K)
-            W_s = compressor_work(Pst*1e5, 200e5, TFLOW_K, excess, R_SPEC, Z, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
+            Z, _ = cal_Z_Rho(Pst*1e5, TFLOW_K)
+            W_s = comp_power(Pst*1e5, 200e5, TFLOW_K, excess, R_SPEC, Z, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
             storage_kWh += W_s
             max_storage_units = max(max_storage_units, math.ceil(excess / DESIGN_MASS_FLOW_4kg))
 
         # fixed-speed initial
-        Wf_i = compressor_work(PSUC_BAR*1e5, PDISC_BAR*1e5, TFLOW_K, flow_init, R_SPEC, Z_in, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
+        Wf_i = comp_power(PSUC_BAR*1e5, PDISC_BAR*1e5, TFLOW_K, flow_init, R_SPEC, Z_in, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
         sum_fix_i += Wf_i
         # variable-speed initial
         Wv_i = 0.0
         if needed_init > 0:
             each = m_dot / needed_init
-            rpm, eff = compressor_model(each, PER_STAGE_PR)
-            Wb = compressor_work(PSUC_BAR*1e5, PDISC_BAR*1e5, TFLOW_K, each, R_SPEC, Z_in, eff, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
+            rpm, eff = compModel(each, PER_STAGE_PR)
+            Wb = comp_power(PSUC_BAR*1e5, PDISC_BAR*1e5, TFLOW_K, each, R_SPEC, Z_in, eff, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
             Wv_i = Wb * (rpm / REF_RPM)**3 * needed_init
         sum_var_i += Wv_i
 
         # fixed-speed enroute
-        Wf_e = compressor_work(P2*1e5, PDISC_BAR*1e5, TFLOW_K, DESIGN_MASS_FLOW_4kg, R_SPEC, Z_en, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
+        Wf_e = comp_power(P2*1e5, PDISC_BAR*1e5, TFLOW_K, DESIGN_MASS_FLOW_4kg, R_SPEC, Z_en, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
         sum_fix_e += Wf_e * needed_init * n_enroute_stations
         # variable-speed enroute
         Wv_e = 0.0
         if needed_init > 0:
             each_e = m_dot / needed_init
-            rpm_e, eff_e = compressor_model(each_e, PER_STAGE_PR)
-            Wb_e = compressor_work(P2*1e5, PDISC_BAR*1e5, TFLOW_K, each_e, R_SPEC,Z_en, eff_e, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
+            rpm_e, eff_e = compModel(each_e, PER_STAGE_PR)
+            Wb_e = comp_power(P2*1e5, PDISC_BAR*1e5, TFLOW_K, each_e, R_SPEC,Z_en, eff_e, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
             Wv_e = Wb_e * (rpm_e / REF_RPM)**3 * needed_init * n_enroute_stations
         sum_var_e += Wv_e
     return sum_fix_i, sum_fix_e, sum_var_i, sum_var_e, storage_kWh, max_storage_units, sum_mass, Z_in,Z_en

@@ -33,7 +33,7 @@ def main():
         sec_len = TOTAL_LEN_KM / (n_st + 1)
         b_to_sto = STORAGE_LOC % sec_len
 
-        # --- Energy simulation ---
+        # Energy simulation
         fi, fe, vi, ve, sk, max_store, mass, Z_initial, Z_enroute = simulate_energy(
             DESIGN_FLOW, INIT_UNITS, n_st, sec_len, b_to_sto
         )
@@ -50,7 +50,7 @@ def main():
             f"{mass/1000:.1f}"
         )
 
-        # --- LCOH computation ---
+        # LCOH computation
         econ = calculate_pipeline_economics(
             INIT_UNITS, EN_PER_STATION, n_st,
             DESIGN_FLOW, fi, fe, sk, vi, ve, ELEC_TARIFF, max_store
