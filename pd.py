@@ -18,11 +18,9 @@ D_m = D_mm / 1000.0                 # Pipe diameter in m
 epsilon = 0.0178e-3                # Pipe roughness in m
 T_K = 288.15                       # Flow temperature in K
 
-# -------------------------------
-# Helper Functions
-# -------------------------------
+
 def calculate_property(P_kPa, T_K, prop):
-    """Get property 'Z','V','D' from CoolProp or fallback."""
+    # Get property 'Z','V','D' from CoolProp or fallback
     try:
         return CP.PropsSI(prop, 'T', T_K, 'P', P_kPa * 1000, fluid)
     except ValueError:
@@ -36,12 +34,11 @@ def calculate_property(P_kPa, T_K, prop):
 
 
 def calculate_velocity(P_kPa, Qb_Sm3_per_day, Z):
-    """Eq. (4): velocity (m/s)."""
     return 14.737 * (Pb_kPa / Tb_K) * (Z * T_K / P_kPa) * (Qb_Sm3_per_day / (D_mm**2))
 
 
 def calculate_pressure_drop_section(P_start_kPa, Qb_Sm3_per_day, sec_len_m):
-    """Pressure drop for one section of length sec_len_m."""
+    # Pressure drop for one section of length sec_len_m
     Z = calculate_property(P_start_kPa, T_K, 'Z')
     mu = calculate_property(P_start_kPa, T_K, 'V')
     rho = (P_start_kPa * 1000 * M_H2) / (R * T_K)
@@ -57,16 +54,12 @@ def calculate_pressure_drop_section(P_start_kPa, Qb_Sm3_per_day, sec_len_m):
             break
         f = new_f
 
-    # ΔP = f*(L/D)*(ρv²/2)
     return f * (sec_len_m / D_m) * (rho * v**2 / 2)
 
 
-def calculate_total_pressure_drop(P1_bar, mass_flow_kg_per_day,
-                                  total_length_m=DEFAULT_TOTAL_LENGTH_M,
-                                  section_length_m=DEFAULT_SECTION_LENGTH_M):
+def calculate_total_pressure_drop(P1_bar, mass_flow_kg_per_day, total_length_m=DEFAULT_TOTAL_LENGTH_M, section_length_m=DEFAULT_SECTION_LENGTH_M):
 
     P1_kPa = P1_bar * 100.0
-    # Standard volume flow (m³/day)
     rho_b = calculate_property(Pb_kPa, Tb_K, 'D')
     Qb_Sm3_day = mass_flow_kg_per_day / rho_b
 
@@ -77,47 +70,11 @@ def calculate_total_pressure_drop(P1_bar, mass_flow_kg_per_day,
     for _ in range(num_sections):
         dp = calculate_pressure_drop_section(P_current_kPa, Qb_Sm3_day, section_length_m)
         total_delta_P += dp
-        P_current_kPa -= dp / 1000.0  # Pa→kPa
+        P_current_kPa -= dp / 1000.0 
         if P_current_kPa <= 0:
             raise RuntimeError("Pressure dropped below zero in section iteration")
 
-    return total_delta_P, P_current_kPa
+    return total_delta_P, P_current_kPa/100
 
 
-def solve_P2_for_flow(P1_bar, mass_flow_kg_per_day,
-                      total_length_m=DEFAULT_TOTAL_LENGTH_M,
-                      section_length_m=DEFAULT_SECTION_LENGTH_M):
-
-    _, P_final_kPa = calculate_total_pressure_drop(
-        P1_bar, mass_flow_kg_per_day,
-        total_length_m, section_length_m
-    )
-    rho_b = calculate_property(Pb_kPa, Tb_K, 'D')
-    Qb_Sm3_day = mass_flow_kg_per_day / rho_b
-    return P_final_kPa/100.0, Qb_Sm3_day
-
-
-def main():
-    pressures = [70, 80, 90, 100]  # bar
-    base_mass_flow = 4_278_788     # kg/day (original)
-    flow_factors = [1.0]  # lower, original, higher
-
-    # Header
-    print(f"{'P1 (bar)':>10} | {'Flow (%)':>8} | {'Flow (kg/day)':>14} | {'P2 (bar)':>9}")
-    print('-' * 55)
-
-    for P1 in pressures:
-        for factor in flow_factors:
-            test_flow = base_mass_flow * factor
-            try:
-                # Directly use solve_P2_for_flow to get P2_bar
-                P2_bar, _ = solve_P2_for_flow(P1, test_flow,
-                                             total_length_m=DEFAULT_TOTAL_LENGTH_M,
-                                             section_length_m=DEFAULT_SECTION_LENGTH_M)
-                print(f"{P1:10.1f} | {factor*100:8.0f}% | {test_flow:14,.0f} | {P2_bar:9.2f}")
-            except Exception as e:
-                print(f"{P1:10.1f} | {factor*100:8.0f}% | {test_flow:14,.0f} | {'Error':>9}")
-
-if __name__ == '__main__':
-    main()
 

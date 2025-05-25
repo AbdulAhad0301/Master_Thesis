@@ -13,7 +13,7 @@ from config import (
     DESIGN_MASS_FLOW_4kg,
     LOAD_CSV
 )
-from pd import solve_P2_for_flow
+from pd import calculate_total_pressure_drop
 from Effmap import cal_Z_Rho, compModel, comp_power
 
 
@@ -31,7 +31,7 @@ def simulate_energy(m_dot_design, units_init, n_enroute_stations, section_length
         m_dot = frac * m_dot_design
         sum_mass += m_dot * 3600
         # pressure drop for section
-        P2, _ = solve_P2_for_flow(PDISC_BAR, m_dot * 86400, total_length_m=section_length_km*1e3)
+        _, P2 = calculate_total_pressure_drop(PDISC_BAR, m_dot * 86400, total_length_m=section_length_km*1e3)
         Z_en, _ = cal_Z_Rho(P2*1e5, TFLOW_K)
         Z_in, _ = cal_Z_Rho(PSUC_BAR*1e5, TFLOW_K)
 
@@ -41,7 +41,7 @@ def simulate_energy(m_dot_design, units_init, n_enroute_stations, section_length
         flow_init = needed_init * DESIGN_MASS_FLOW_4kg
         excess = max(flow_init - m_dot, 0)
         if excess > 0:
-            Pst, _ = solve_P2_for_flow(PDISC_BAR, flow_init*86400, total_length_m=booster_to_storage_km*1e3)
+            _ , Pst = calculate_total_pressure_drop(PDISC_BAR, flow_init*86400, total_length_m=booster_to_storage_km*1e3)
             Z, _ = cal_Z_Rho(Pst*1e5, TFLOW_K)
             W_s = comp_power(Pst*1e5, 200e5, TFLOW_K, excess, R_SPEC, Z, eta=ETA, k=K_GAS, N=NUMBER_OF_STAGES)/1000/MOTOR_Eff
             storage_kWh += W_s
